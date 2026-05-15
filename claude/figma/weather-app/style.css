@@ -1,0 +1,50 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans', sans-serif;
+  background: #ff7676;
+  min-height: 100vh;
+  color: #000;
+  transition: background 1s ease;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+}
+
+#city {
+  position: absolute;
+  top: 9%;
+  left: 8.7%;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+#icon {
+  position: absolute;
+  top: 4%;
+  right: 8.7%;
+  width: 90px;
+  height: 90px;
+}
+
+#temp {
+  position: absolute;
+  top: 15%;
+  left: 8.7%;
+  font-size: clamp(3rem, 14vw, 5rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+#phrase {
+  position: absolute;
+  top: 38%;
+  left: 8.7%;
+  width: 82%;
+  font-size: clamp(2.4rem, 10vw, 4rem);
+  font-weight: 700;
+  line-height: 1.05;
+}
