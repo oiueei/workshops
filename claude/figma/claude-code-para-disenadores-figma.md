@@ -41,8 +41,6 @@ Va a pasar. El modelo no es perfecto. Va a generar código que no funciona, va a
 
 ## 2 — Tokens vs ventana de contexto
 
-Una vez la gente está cómoda con la pantalla, toca explicar el motor.
-
 **Token**
 La unidad mínima que procesa el modelo. **No es una palabra**, es un trozo de palabra. En español, un token equivale aproximadamente a 3-4 caracteres. La frase *"Hola Claude, dime qué tiempo hace en Barcelona"* son unos 12-14 tokens. Un fichero JS de 100 líneas, unos 800-1.500 tokens. Una captura de pantalla, varios miles.
 
@@ -190,19 +188,6 @@ Una **convención** dentro de SDD. Markdown donde describes arquitectura, decisi
 **"Rules"**
 Término que viene de Cursor (allí sí es una feature formal: `.cursor/rules/`). En Claude Code, "rules" suele referirse a instrucciones dentro de CLAUDE.md o a una carpeta de skills/markdowns que defines tú. El plugin oficial de Figma para Claude Code, por ejemplo, viene con rules para el manejo de assets desde el MCP — pero por debajo son markdowns.
 
-### Resumen tabla
-
-| Concepto | ¿Oficial Claude Code? | ¿Qué hace? |
-|---|---|---|
-| Agente principal | **√** | La sesión con la que hablas |
-| Sub-agente | **√** | Tarea aislada con contexto propio |
-| Skill | **√** | Instrucciones que se cargan solas según contexto |
-| Slash command | **√** | Entrada explícita (`/algo`) |
-| CLAUDE.md | **√** (convención muy soportada) | Contexto persistente del proyecto |
-| Spec-driven dev | **NO** — es metodología | Especificar antes de programar |
-| DESIGN.md | **NO** — es convención | Markdown de decisiones de arquitectura |
-| Rules | Depende | En Cursor **√**, en Claude Code es CLAUDE.md o skills |
-
 ---
 
 ## 7 — Mismo Claude en Claude Code que en Cursor: ¿de verdad?
@@ -233,14 +218,6 @@ Varios proyectos open-source. Suelen ofrecer más funcionalidad (escanear accesi
 **Pros:** más capacidades, más rápido en innovar.
 **Contras:** instalación más compleja, mantenidos por la comunidad (puede romperse), seguridad y permisos que valoras tú, calidad variable.
 
-### ⚠️ CUIDADO — Conoce las limitaciones de `get_variable_defs`
-
-El MCP oficial te devuelve los colores en **HEX**. Y los respeta bien cuando los overrides están hechos con **otras variables del design system** (ej: si cambias el fill de `Background/Brand/Default` a `Background/Positive/Hover`, el MCP lo captura correctamente).
-
-Pero si sobrescribes **manualmente con un color que no está definido en el DS** (un hex al azar tipo `#AF1234`), el MCP puede no devolvértelo bien o presentarlo como *"sin fondo (outline)"*.
-
-**Workaround**: cuando trabajes con Claude para implementar diseños, intenta que todos los colores estén vinculados a variables del design system. Si tienes overrides manuales, valida visualmente contra la screenshot que devuelve `get_screenshot` — no te fíes sólo de la descripción textual.
-
 ---
 
 ## 9 — MCP Figma: modo local vs remoto
@@ -260,19 +237,6 @@ Pero si sobrescribes **manualmente con un color que no está definido en el DS**
 - Funciona **principalmente por selección activa** (lo que esté seleccionado en Figma Desktop es lo que Claude ve), pero también acepta URLs.
 - Requiere plan de pago (Dev seat o Full seat).
 - **Sólo lectura.** Algunas features avanzadas no están aquí (`use_figma`, `generate_figma_design`, `search_design_system`).
-
-### Tabla de qué herramienta va dónde
-
-| Herramienta | Remoto | Local |
-|---|---|---|
-| `get_design_context` | **√** | **√** |
-| `get_variable_defs` | **√** | **√** |
-| `get_screenshot` | **√** | **√** |
-| `get_metadata` | **√** | **√** |
-| `use_figma` (write to canvas) | **√** | **NO** |
-| `generate_figma_design` (capturar UI a Figma) | **√** | **NO** |
-| `search_design_system` | **√** | **NO** |
-| Funciona por selección activa (sin URL) | **NO** | **√** |
 
 ### Tener los dos configurados a la vez
 
@@ -345,7 +309,41 @@ Con `figma-implement-design` cargada, Claude sigue un workflow estructurado en l
 
 ---
 
-## 11 — Push a Figma: un cambio mental
+## 11 — Por qué hay que dominar Variables / Variantes / Components
+
+Punto de máxima rentabilidad práctica. Donde un diseñador nota la diferencia entre "Claude me ayuda un poco" y "Claude me clava el código".
+
+El MCP de Figma **lee la estructura semántica** del archivo. No mira la pantalla como una imagen, lee el árbol: qué es un componente, qué es una variable, qué es auto-layout, qué nombre tiene cada capa.
+
+### Variables (= design tokens)
+Cuando defines `--color-primary` como variable en Figma con valor `#3f8ec3`, el MCP lo extrae como **token semántico**, no como hex perdido. Claude entonces genera código tipo `var(--sds-color-background-brand-default)` en vez de hardcodear `#3f8ec3` por todos lados.
+
+Sin variables: el MCP devuelve valores hex sueltos, Claude no sabe que dos botones del mismo color "deberían" referenciar la misma variable, y acabas con código inmantenible.
+
+### Componentes
+Cuando creas un componente reutilizable en Figma (`Button`, `Card`, `Hero`), el MCP lo detecta como **un componente** — no como "un rectángulo con texto". Esto permite que Claude genere un component reutilizable, no markup duplicado.
+
+Sin componentes: Claude ve 6 testimonios y genera 6 bloques HTML repetidos, en vez de un `<testimonial-card>` reutilizado 6 veces con distintos atributos.
+
+### Variantes
+Las variantes (botón primary vs secondary, card grande vs pequeña, estados hover/active, con o sin icono) le indican al MCP **qué variaciones tiene un componente**. Claude entonces genera un componente con props/atributos correctos (`variant="primary"`, `size="large"`) en vez de duplicar.
+
+### Auto-layout
+Crítico. Auto-layout en Figma comunica **intención responsive**: "esto se apila vertical con 16px de gap, alineado al inicio". El MCP traduce eso a flexbox/grid con los valores exactos. Sin auto-layout → absolute positions y Claude adivinando cómo se comporta en otros tamaños.
+
+### Naming semántico de capas
+Una capa llamada `CardContainer` se traduce a `<div class="card-container">` o `<card-container>`. Una capa `Group 5` se traduce a `<div class="group-5">` o, peor, Claude se inventa un nombre. **El nombre que pongas en Figma acaba en el HTML.**
+
+### 👉 HOT TIP — El mensaje central
+**El MCP no es magia, es un traductor.** Le das estructura, te devuelve estructura. Le das un mockup pixel-perfect sin estructura, te devuelve píxeles sin estructura.
+
+> Cuanto más "design-system" sea tu Figma, mejor código sale.
+> Variables + Componentes + Variantes + Auto-layout + naming semántico = código limpio.
+> Frames sueltos con valores hex hardcoded = código sucio.
+
+---
+
+## 12 — Push a Figma: un cambio mental
 
 Hasta ahora hemos visto Figma → código. La intuición de todo el mundo es que el MCP de Figma sirve para "sacar diseños y convertirlos en código". **El MCP remoto + Full seat también funciona al revés.**
 
@@ -396,41 +394,7 @@ testimonios tal y como ha quedado en el navegador."
   - **Full seat**: escribe en cualquier archivo.
   - **Dev seat**: escribe sólo en sus propios drafts. Read-only fuera de drafts.
   - **View / Collab seat o Plan Starter**: sólo lectura, máximo 6 tool calls/mes.
-- **Sólo el MCP remoto escribe.** El local (Figma Desktop) sólo lee.
-
----
-
-## 12 — Por qué hay que dominar Variables / Variantes / Components
-
-Punto de máxima rentabilidad práctica. Donde un diseñador nota la diferencia entre "Claude me ayuda un poco" y "Claude me clava el código".
-
-El MCP de Figma **lee la estructura semántica** del archivo. No mira la pantalla como una imagen, lee el árbol: qué es un componente, qué es una variable, qué es auto-layout, qué nombre tiene cada capa.
-
-### Variables (= design tokens)
-Cuando defines `--color-primary` como variable en Figma con valor `#3f8ec3`, el MCP lo extrae como **token semántico**, no como hex perdido. Claude entonces genera código tipo `var(--sds-color-background-brand-default)` en vez de hardcodear `#3f8ec3` por todos lados.
-
-Sin variables: el MCP devuelve valores hex sueltos, Claude no sabe que dos botones del mismo color "deberían" referenciar la misma variable, y acabas con código inmantenible.
-
-### Componentes
-Cuando creas un componente reutilizable en Figma (`Button`, `Card`, `Hero`), el MCP lo detecta como **un componente** — no como "un rectángulo con texto". Esto permite que Claude genere un component reutilizable, no markup duplicado.
-
-Sin componentes: Claude ve 6 testimonios y genera 6 bloques HTML repetidos, en vez de un `<testimonial-card>` reutilizado 6 veces con distintos atributos.
-
-### Variantes
-Las variantes (botón primary vs secondary, card grande vs pequeña, estados hover/active, con o sin icono) le indican al MCP **qué variaciones tiene un componente**. Claude entonces genera un componente con props/atributos correctos (`variant="primary"`, `size="large"`) en vez de duplicar.
-
-### Auto-layout
-Crítico. Auto-layout en Figma comunica **intención responsive**: "esto se apila vertical con 16px de gap, alineado al inicio". El MCP traduce eso a flexbox/grid con los valores exactos. Sin auto-layout → absolute positions y Claude adivinando cómo se comporta en otros tamaños.
-
-### Naming semántico de capas
-Una capa llamada `CardContainer` se traduce a `<div class="card-container">` o `<card-container>`. Una capa `Group 5` se traduce a `<div class="group-5">` o, peor, Claude se inventa un nombre. **El nombre que pongas en Figma acaba en el HTML.**
-
-### 👉 HOT TIP — El mensaje central
-**El MCP no es magia, es un traductor.** Le das estructura, te devuelve estructura. Le das un mockup pixel-perfect sin estructura, te devuelve píxeles sin estructura.
-
-> Cuanto más "design-system" sea tu Figma, mejor código sale.
-> Variables + Componentes + Variantes + Auto-layout + naming semántico = código limpio.
-> Frames sueltos con valores hex hardcoded = código sucio.
+  - **Sólo el MCP remoto escribe.** El local (Figma Desktop) sólo lee.
 
 ---
 
